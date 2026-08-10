@@ -3,7 +3,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 // === State Aplikasi ===
 const state = {
-  files: [] // Menyimpan objek: { id, file, status, progress, pageCount, duration, docxBlob, textPreview, error }
+  files: [] 
 };
 
 // === Element references ===
@@ -182,7 +182,7 @@ function updateButtons() {
   clearBtn.disabled = !hasFiles || isProcessing;
 }
 
-// === Conversion Logic ===
+// === Conversion Logic (Smart Structure Preserving) ===
 async function convertAll() {
   const toConvert = state.files.filter(f => f.status === 'queued' || f.status === 'error');
   if (toConvert.length === 0) return;
@@ -208,12 +208,10 @@ async function convertPdfToWord(item) {
     const startTime = performance.now();
     const arrayBuffer = await item.file.arrayBuffer();
     
-    // Load PDF document
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     item.pageCount = pdf.numPages;
     renderFileList();
 
-    const mode = optMode.value;
     const pageBreak = optPageBreak.checked;
     const detectHeading = optHeading.checked;
 
@@ -224,77 +222,153 @@ async function convertPdfToWord(item) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      let pageText = '';
-      let currentY = null;
-      let lineText = '';
+      // 1. Ekstrak item dengan informasi posisi dan ukuran
+      const items = textContent.items.map(it => {
+        const fontSize = it.height || Math.abs(it.transform[3]) || 10;
+        return {
+          text: it.str,
+          x: it.transform[4],
+          y: it.transform[5],
+          fontSize: fontSize,
+          width: it.width
+        };
+      }).filter(it => it.text.trim() !== '');
 
-      // Urutkan item teks berdasarkan posisi Y (atas ke bawah) lalu X (kiri ke kanan)
-      const items = textContent.items.sort((a, b) => {
-        const yDiff = Math.abs(a.transform[5] - b.transform[5]);
-        if (yDiff < 5) {
-          return a.transform[4] - b.transform[4];
-        }
-        return b.transform[5] - a.transform[5];
-      });
-
-      // Rekonstruksi teks berdasarkan posisi
-      items.forEach(item => {
-        const y = item.transform[5];
-        if (currentY === null) currentY = y;
-        
-        // Jika beda Y signifikan, anggap baris baru
-        if (Math.abs(y - currentY) > 5) {
-          if (lineText.trim()) pageText += lineText.trim() + '\n';
-          lineText = '';
-          currentY = y;
-        }
-        lineText += item.str + (item.hasEOL ? '\n' : '');
-      });
-      
-      if (lineText.trim()) pageText += lineText.trim();
-      
-      fullTextPreview.push(`--- Halaman ${i} ---\n${pageText || '[Tidak ada teks]'}`);
-
-      if (pageText.trim()) {
-        if (mode === 'line') {
-          // Mode per baris
-          pageText.split('\n').forEach(line => {
-            if (line.trim()) {
-              paragraphs.push(new docx.Paragraph({
-                children: [new docx.TextRun({ text: line.trim(), size: 22 })] // 11pt
-              }));
-            }
-          });
-        } else if (mode === 'text') {
-          // Mode teks murni (gabung semua)
-          paragraphs.push(new docx.Paragraph({
-            children: [new docx.TextRun({ text: pageText.replace(/\n/g, ' ').trim(), size: 22 })]
-          }));
-          paragraphs.push(new docx.Paragraph({ children: [] })); // Spasi antar halaman
-        } else {
-          // Mode structure (paragraf) - default
-          const lines = pageText.split('\n').map(l => l.trim()).filter(l => l);
-          lines.forEach((line, idx) => {
-            // Deteksi judul sederhana (teks pendek di awal halaman)
-            if (detectHeading && idx === 0 && line.length < 100) {
-              paragraphs.push(new docx.Paragraph({
-                children: [new docx.TextRun({ text: line, bold: true, size: 28 })], // 14pt bold
-                heading: docx.HeadingLevel.HEADING_2
-              }));
-            } else {
-              paragraphs.push(new docx.Paragraph({
-                children: [new docx.TextRun({ text: line, size: 22 })]
-              }));
-            }
-          });
-        }
-
-        // Tambahkan page break antar halaman jika diaktifkan
+      if (items.length === 0) {
+        fullTextPreview.push(`--- Halaman ${i} ---\n[Tidak ada teks]`);
         if (pageBreak && i < pdf.numPages) {
-          paragraphs.push(new docx.Paragraph({
-            children: [new docx.PageBreak()]
-          }));
+          paragraphs.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
         }
+        continue;
+      }
+
+      // 2. Sortir teks berdasarkan posisi (Atas ke Bawah, Kiri ke Kanan)
+      items.sort((a, b) => {
+        if (Math.abs(a.y - b.y) > 2) return b.y - a.y; // Y menurun (atas ke bawah)
+        return a.x - b.x; // X meningkat (kiri ke kanan)
+      });
+
+      // 3. Cari ukuran font dasar (yang paling sering muncul = paragraf normal)
+      const sizeMap = {};
+      items.forEach(it => {
+        const sz = Math.round(it.fontSize);
+        sizeMap[sz] = (sizeMap[sz] || 0) + 1;
+      });
+      let baseFontSize = 12;
+      let maxCount = 0;
+      for (const sz in sizeMap) {
+        if (sizeMap[sz] > maxCount) {
+          maxCount = sizeMap[sz];
+          baseFontSize = parseInt(sz);
+        }
+      }
+
+      // 4. Kelompokkan item menjadi baris (Lines)
+      let lines = [];
+      let currentLine = [items[0]];
+      for (let j = 1; j < items.length; j++) {
+        const prev = items[j - 1];
+        const curr = items[j];
+        if (Math.abs(curr.y - prev.y) <= 3) {
+          currentLine.push(curr);
+        } else {
+          lines.push(currentLine);
+          currentLine = [curr];
+        }
+      }
+      lines.push(currentLine);
+
+      // 5. Kelompokkan baris menjadi blok (Paragraf/Heading)
+      let blocks = [];
+      let currentBlock = [lines[0]];
+      
+      for (let j = 1; j < lines.length; j++) {
+        const prevLine = lines[j - 1];
+        const currLine = lines[j];
+        
+        const prevMaxFont = Math.max(...prevLine.map(i => i.fontSize));
+        const currMaxFont = Math.max(...currLine.map(i => i.fontSize));
+        const prevX = prevLine[0].x;
+        const currX = currLine[0].x;
+        const yGap = prevLine[0].y - currLine[0].y;
+        
+        // Jika ukuran font beda signifikan -> blok baru
+        if (Math.abs(prevMaxFont - currMaxFont) > 1) {
+          blocks.push(currentBlock);
+          currentBlock = [currLine];
+          continue;
+        }
+        // Jika indentasi (X) berbeda jauh -> blok baru
+        if (Math.abs(prevX - currX) > 15) {
+          blocks.push(currentBlock);
+          currentBlock = [currLine];
+          continue;
+        }
+        // Jika jarak baris (Y) terlalu jauh -> blok baru (paragraf baru)
+        if (yGap > currMaxFont * 1.5) {
+          blocks.push(currentBlock);
+          currentBlock = [currLine];
+          continue;
+        }
+        
+        currentBlock.push(currLine);
+      }
+      blocks.push(currentBlock);
+
+      // 6. Konversi blok menjadi Paragraphs & TextRuns DOCX
+      let pageText = `--- Halaman ${i} ---\n`;
+      blocks.forEach(block => {
+        const runs = [];
+        let blockMaxFont = 0;
+        
+        block.forEach((line, lineIdx) => {
+          line.forEach((item, idx) => {
+            // Deteksi spasi antar kata
+            if (idx > 0) {
+              const prevItem = line[idx - 1];
+              const gap = item.x - (prevItem.x + prevItem.width);
+              if (gap > 2 && !prevItem.text.endsWith(' ')) {
+                runs.push(new docx.TextRun({ text: ' ', size: Math.round(item.fontSize * 2) }));
+              }
+            }
+            
+            const runSize = Math.round(item.fontSize * 2); // DOCX pakai half-points
+            runs.push(new docx.TextRun({ text: item.text, size: runSize }));
+            if (item.fontSize > blockMaxFont) blockMaxFont = item.fontSize;
+          });
+          
+          // Tambahkan spasi antar baris dalam paragraf yang sama
+          if (lineIdx < block.length - 1) {
+            const lastText = line[line.length - 1].text;
+            if (!lastText.endsWith('-')) {
+              runs.push(new docx.TextRun({ text: ' ', size: Math.round(blockMaxFont * 2) }));
+            }
+          }
+        });
+        
+        let paraProps = { children: runs };
+        const blockText = runs.map(r => r.options?.text || '').join('').trim();
+        pageText += blockText + "\n\n";
+        
+        // Deteksi Heading berdasarkan ukuran font
+        if (detectHeading && blockMaxFont > baseFontSize * 1.15) {
+          if (blockMaxFont > baseFontSize * 1.5) {
+            paraProps.heading = docx.HeadingLevel.HEADING_1;
+          } else if (blockMaxFont > baseFontSize * 1.3) {
+            paraProps.heading = docx.HeadingLevel.HEADING_2;
+          } else {
+            paraProps.heading = docx.HeadingLevel.HEADING_3;
+          }
+        }
+        
+        paragraphs.push(new docx.Paragraph(paraProps));
+      });
+
+      fullTextPreview.push(pageText);
+
+      // Page break antar halaman
+      if (pageBreak && i < pdf.numPages) {
+        paragraphs.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
       }
 
       item.progress = Math.round((i / pdf.numPages) * 100);
@@ -309,10 +383,9 @@ async function convertPdfToWord(item) {
       }]
     });
 
-    // Generate blob
     const blob = await docx.Packer.toBlob(doc);
     item.docxBlob = blob;
-    item.textPreview = fullTextPreview.join('\n\n');
+    item.textPreview = fullTextPreview.join('\n');
     item.status = 'done';
     item.duration = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
 
@@ -337,7 +410,6 @@ function downloadAll() {
   if (doneFiles.length === 0) return;
 
   doneFiles.forEach((item, index) => {
-    // Beri sedikit jeda untuk menghindari pemblokiran browser
     setTimeout(() => downloadDocx(item), index * 300);
   });
 }
@@ -397,11 +469,10 @@ dropzone.addEventListener('drop', (e) => {
 fileInput.addEventListener('change', (e) => {
   if (e.target.files.length > 0) {
     handleFiles(e.target.files);
-    fileInput.value = ''; // Reset input agar bisa memilih file yang sama lagi
+    fileInput.value = ''; 
   }
 });
 
-// Event delegation untuk tombol di dalam file list
 fileList.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-action]');
   if (!btn) return;
@@ -425,7 +496,6 @@ convertBtn.addEventListener('click', convertAll);
 downloadAllBtn.addEventListener('click', downloadAll);
 clearBtn.addEventListener('click', clearAll);
 
-// Cek apakah library sudah dimuat
 if (typeof pdfjsLib === 'undefined' || typeof docx === 'undefined' || typeof saveAs === 'undefined') {
   setTimeout(() => {
     toast('error', 'Library gagal dimuat', 'Mohon periksa koneksi internet lalu refresh halaman.');
