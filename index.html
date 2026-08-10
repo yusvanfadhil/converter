@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDFkeWORD — Konverter PDF ke DOCX di Browser</title>
-  <meta name="description" content="Konverter PDF ke Word yang berjalan 100% di browser. Privat, gratis, tanpa unggah server.">
+  <title>PDFkeWORD — Konverter PDF ke DOCX Presisi</title>
+  <meta name="description" content="Konverter PDF ke Word yang menjaga struktur paragraf dan heading. Berjalan 100% di browser.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -47,10 +47,10 @@
         <h1 class="hero-title">
           Ubah <span class="accent-text">PDF</span><br>
           jadi <span class="accent-text-2">Word</span> yang<br>
-          bisa diedit.
+          rapi & terstruktur.
         </h1>
         <p class="hero-sub">
-          Konverter PDF ke DOCX yang berjalan sepenuhnya di browser Anda. Cepat, gratis, dan file Anda tidak pernah meninggalkan perangkat.
+          Konverter PDF ke DOCX cerdas yang menjaga paragraf, heading, dan ukuran font tetap utuh. Berjalan sepenuhnya di browser Anda. Cepat, gratis, dan aman.
         </p>
         <div class="hero-stats">
           <div class="stat">
@@ -73,7 +73,7 @@
       <div class="converter-card">
         <div class="card-header">
           <div>
-            <h2 class="card-title">Konverter</h2>
+            <h2 class="card-title">Konverter Presisi</h2>
             <p class="card-sub">Tarik file PDF Anda ke sini, atau klik untuk memilih</p>
           </div>
           <div class="card-actions">
@@ -99,22 +99,14 @@
           <div class="option">
             <label>
               <input type="checkbox" id="optPageBreak" checked>
-              <span class="opt-text">Pisahkan halaman</span>
+              <span class="opt-text">Pisahkan halaman (Page Break)</span>
             </label>
           </div>
           <div class="option">
             <label>
               <input type="checkbox" id="optHeading" checked>
-              <span class="opt-text">Deteksi judul</span>
+              <span class="opt-text">Deteksi Heading Otomatis</span>
             </label>
-          </div>
-          <div class="option-select">
-            <label for="optMode">Mode ekstraksi</label>
-            <select id="optMode">
-              <option value="structure" selected>Paragraf</option>
-              <option value="text">Teks murni</option>
-              <option value="line">Per baris</option>
-            </select>
           </div>
         </div>
 
@@ -142,8 +134,8 @@
           <span>Tanpa antrian, tanpa registrasi</span>
         </div>
         <div class="trust-item">
-          <i class="fa-solid fa-infinity"></i>
-          <span>Tidak ada batas jumlah file</span>
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Struktur paragraf dijaga utuh</span>
         </div>
       </div>
     </section>
@@ -164,13 +156,13 @@
           <div class="step-num">02</div>
           <i class="fa-solid fa-microchip step-icon"></i>
           <h3>Proses di Browser</h3>
-          <p>Mesin konversi PDF.js bekerja langsung di browser. Tidak ada data yang dikirim keluar.</p>
+          <p>Mesin cerdas membaca posisi teks & ukuran font PDF.js langsung di browser Anda tanpa upload.</p>
         </article>
         <article class="step-card">
           <div class="step-num">03</div>
           <i class="fa-solid fa-file-word step-icon"></i>
           <h3>Unduh DOCX</h3>
-          <p>Hasil konversi tersedia sebagai file .docx yang siap dibuka di Microsoft Word atau Google Docs.</p>
+          <p>Hasil konversi rapi dengan paragraf dan heading utuh, siap dibuka di Microsoft Word atau Docs.</p>
         </article>
       </div>
     </section>
@@ -188,13 +180,13 @@
         </article>
         <article class="feature-card">
           <div class="feature-icon-wrap"><i class="fa-solid fa-layer-group"></i></div>
-          <h3>Multi-File Batch</h3>
-          <p>Konversi puluhan PDF sekaligus. Antrekan, proses, dan unduh semua hasil dalam satu klik.</p>
+          <h3>Presisi Struktur</h3>
+          <p>Algoritma kami memetakan posisi X/Y dan ukuran font untuk menjaga paragraf tetap menyatu rapi.</p>
         </article>
         <article class="feature-card">
-          <div class="feature-icon-wrap"><i class="fa-solid fa-sliders"></i></div>
-          <h3>Pengaturan Konversi</h3>
-          <p>Pilih mode ekstraksi, atur pemisah halaman, dan aktifkan deteksi judul sesuai kebutuhan Anda.</p>
+          <div class="feature-icon-wrap"><i class="fa-solid fa-heading"></i></div>
+          <h3>Deteksi Heading</h3>
+          <p>Teks berukuran besar akan otomatis diubah menjadi Heading 1, 2, atau 3 di dokumen Word.</p>
         </article>
         <article class="feature-card">
           <div class="feature-icon-wrap"><i class="fa-solid fa-eye"></i></div>
@@ -221,27 +213,21 @@
       </div>
       <div class="faq-list">
         <details class="faq-item">
-          <summary>Apakah file saya benar-benar tidak diunggah ke server?</summary>
+          <summary>Apakah struktur paragraf dan heading benar-benar tetap utuh?</summary>
           <div class="faq-answer">
-            <p>Benar. Seluruh proses konversi berjalan di browser Anda menggunakan teknologi PDF.js dan WebAssembly. File PDF hanya ada di memori perangkat Anda dan langsung dibersihkan setelah konversi selesai. Tidak ada permintaan jaringan yang mengirim isi PDF Anda.</p>
+            <p>Ya. Berbeda dengan konverter biasa yang hanya membaca teks mentah, algoritma kami menganalisis koordinat X/Y, jarak baris, dan ukuran font dari PDF. Teks yang menyambung akan disatukan menjadi paragraf utuh, dan teks besar akan diubah menjadi Heading di Word.</p>
           </div>
         </details>
         <details class="faq-item">
-          <summary>Berapa ukuran file maksimal yang bisa dikonversi?</summary>
+          <summary>Apakah file saya benar-benar tidak diunggah ke server?</summary>
           <div class="faq-answer">
-            <p>Kami menetapkan batas 50 MB per file sebagai rekomendasi agar performa tetap optimal. File yang lebih besar masih bisa diproses, namun kecepatannya bergantung pada kapasitas memori perangkat Anda.</p>
+            <p>Benar. Seluruh proses konversi berjalan di browser Anda menggunakan teknologi PDF.js dan WebAssembly. File PDF hanya ada di memori perangkat Anda dan langsung dibersihkan setelah konversi selesai.</p>
           </div>
         </details>
         <details class="faq-item">
           <summary>Apakah gambar di dalam PDF ikut dikonversi?</summary>
           <div class="faq-answer">
-            <p>Versi saat ini fokus pada ekstraksi teks dan struktur paragraf. Gambar, tabel kompleks, dan elemen vektor akan dilewati. Teks tetap terbaca dengan baik pada PDF berbasis teks (bukan hasil scan). Untuk PDF hasil scan, dibutuhkan OCR yang belum didukung versi ini.</p>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>Browser apa yang didukung?</summary>
-          <div class="faq-answer">
-            <p>Aplikasi ini bekerja optimal di Chrome, Edge, Firefox, dan Safari versi terbaru. Pastikan JavaScript dan WebAssembly aktif di pengaturan browser Anda. Untuk hasil terbaik gunakan perangkat dengan RAM minimal 4 GB.</p>
+            <p>Versi saat ini berfokus pada ekstraksi teks dan struktur (paragraf & heading) agar rapi dan bisa diedit. Gambar dan tabel kompleks akan dilewati. Teks tetap terbaca dengan baik pada PDF berbasis teks (bukan hasil scan).</p>
           </div>
         </details>
       </div>
@@ -256,7 +242,7 @@
           <i class="fa-solid fa-arrow-right-arrow-left"></i>
           <span class="docx">DOCX</span>
         </span>
-        <p class="footer-tag">Konverter PDF ke Word yang menghormati privasi Anda.</p>
+        <p class="footer-tag">Konverter PDF ke Word presisi yang menghormati privasi Anda.</p>
       </div>
       <div class="footer-meta">
         <p>© 2025 PDFkeWORD · Didukung PDF.js &amp; docx.js</p>

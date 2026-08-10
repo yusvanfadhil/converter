@@ -16,7 +16,6 @@ const clearBtn = document.getElementById('clearBtn');
 const toastContainer = document.getElementById('toastContainer');
 const optPageBreak = document.getElementById('optPageBreak');
 const optHeading = document.getElementById('optHeading');
-const optMode = document.getElementById('optMode');
 
 // === Utility Functions ===
 function formatBytes(bytes) {
@@ -182,7 +181,7 @@ function updateButtons() {
   clearBtn.disabled = !hasFiles || isProcessing;
 }
 
-// === Conversion Logic (Smart Structure Preserving) ===
+// === Conversion Logic (Presisi Struktur) ===
 async function convertAll() {
   const toConvert = state.files.filter(f => f.status === 'queued' || f.status === 'error');
   if (toConvert.length === 0) return;
@@ -194,7 +193,7 @@ async function convertAll() {
     await convertPdfToWord(item);
   }
 
-  toast('success', 'Konversi Selesai', 'Semua file berhasil diproses.');
+  toast('success', 'Konversi Selesai', 'Semua file berhasil diproses dengan presisi.');
   updateButtons();
 }
 
@@ -222,7 +221,7 @@ async function convertPdfToWord(item) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      // 1. Ekstrak item dengan informasi posisi dan ukuran
+      // 1. Ekstrak item dengan informasi posisi dan ukuran font
       const items = textContent.items.map(it => {
         const fontSize = it.height || Math.abs(it.transform[3]) || 10;
         return {
@@ -232,7 +231,7 @@ async function convertPdfToWord(item) {
           fontSize: fontSize,
           width: it.width
         };
-      }).filter(it => it.text.trim() !== '');
+      }).filter(it => it.text.trim() !== '' || it.width > 0);
 
       if (items.length === 0) {
         fullTextPreview.push(`--- Halaman ${i} ---\n[Tidak ada teks]`);
@@ -244,8 +243,8 @@ async function convertPdfToWord(item) {
 
       // 2. Sortir teks berdasarkan posisi (Atas ke Bawah, Kiri ke Kanan)
       items.sort((a, b) => {
-        if (Math.abs(a.y - b.y) > 2) return b.y - a.y; // Y menurun (atas ke bawah)
-        return a.x - b.x; // X meningkat (kiri ke kanan)
+        if (Math.abs(a.y - b.y) > 2) return b.y - a.y; 
+        return a.x - b.x; 
       });
 
       // 3. Cari ukuran font dasar (yang paling sering muncul = paragraf normal)
@@ -366,7 +365,7 @@ async function convertPdfToWord(item) {
 
       fullTextPreview.push(pageText);
 
-      // Page break antar halaman
+      // Tambahkan page break antar halaman
       if (pageBreak && i < pdf.numPages) {
         paragraphs.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
       }
