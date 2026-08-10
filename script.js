@@ -291,23 +291,32 @@ async function convertPdfToWord(item) {
         const currX = currLine[0].x;
         const yGap = prevLine[0].y - currLine[0].y;
         
+        const currText = currLine.map(i => i.text).join('').trim();
+        const prevText = prevLine.map(i => i.text).join('').trim();
+
+        // Deteksi List (1. , 2. , -, •, x)
+        const isList = /^\s*\d+\.\s/.test(currText) || /^\s*[-•*x]\s/.test(currText) || /^\s*[-•*x]\s*$/.test(currText);
+        const prevIsList = /^\s*\d+\.\s/.test(prevText) || /^\s*[-•*x]\s/.test(prevText) || /^\s*[-•*x]\s*$/.test(prevText);
+
         // Jika ukuran font beda signifikan -> blok baru
         if (Math.abs(prevMaxFont - currMaxFont) > 1) {
-          blocks.push(currentBlock);
-          currentBlock = [currLine];
-          continue;
+          blocks.push(currentBlock); currentBlock = [currLine]; continue;
         }
         // Jika indentasi (X) berbeda jauh -> blok baru
         if (Math.abs(prevX - currX) > 15) {
-          blocks.push(currentBlock);
-          currentBlock = [currLine];
-          continue;
+          blocks.push(currentBlock); currentBlock = [currLine]; continue;
         }
-        // Jika jarak baris (Y) terlalu jauh -> blok baru (paragraf baru)
-        if (yGap > currMaxFont * 1.5) {
-          blocks.push(currentBlock);
-          currentBlock = [currLine];
-          continue;
+        // Jika jarak baris (Y) agak jauh -> blok baru (paragraf baru)
+        // Threshold diturunkan ke 1.2 untuk sensitivitas enter
+        if (yGap > currMaxFont * 1.2) {
+          blocks.push(currentBlock); currentBlock = [currLine]; continue;
+        }
+        // Jika ada list, buat blok baru
+        if (isList && !prevIsList) {
+          blocks.push(currentBlock); currentBlock = [currLine]; continue;
+        }
+        if (prevIsList && !isList) {
+          blocks.push(currentBlock); currentBlock = [currLine]; continue;
         }
         
         currentBlock.push(currLine);
@@ -319,20 +328,21 @@ async function convertPdfToWord(item) {
       blocks.forEach(block => {
         const runs = [];
         let blockMaxFont = 0;
+        let blockText = '';
         
         block.forEach((line, lineIdx) => {
           line.forEach((item, idx) => {
-            // Deteksi spasi antar kata
             if (idx > 0) {
               const prevItem = line[idx - 1];
               const gap = item.x - (prevItem.x + prevItem.width);
               if (gap > 2 && !prevItem.text.endsWith(' ')) {
                 runs.push(new docx.TextRun({ text: ' ', size: Math.round(item.fontSize * 2) }));
+                blockText += ' ';
               }
             }
-            
             const runSize = Math.round(item.fontSize * 2); // DOCX pakai half-points
             runs.push(new docx.TextRun({ text: item.text, size: runSize }));
+            blockText += item.text;
             if (item.fontSize > blockMaxFont) blockMaxFont = item.fontSize;
           });
           
@@ -341,21 +351,28 @@ async function convertPdfToWord(item) {
             const lastText = line[line.length - 1].text;
             if (!lastText.endsWith('-')) {
               runs.push(new docx.TextRun({ text: ' ', size: Math.round(blockMaxFont * 2) }));
+              blockText += ' ';
             }
           }
         });
         
-        let paraProps = { children: runs };
-        const blockText = runs.map(r => r.options?.text || '').join('').trim();
+        blockText = blockText.trim();
         pageText += blockText + "\n\n";
         
-        // Deteksi Heading berdasarkan ukuran font
-        if (detectHeading && blockMaxFont > baseFontSize * 1.15) {
-          if (blockMaxFont > baseFontSize * 1.5) {
+        let paraProps = { children: runs };
+        
+        // Deteksi Heading
+        const isAllCaps = blockText === blockText.toUpperCase() && /[A-Z]/.test(blockText) && blockText.length < 50;
+        const isPageNum = /^\s*\d+\s*$/.test(blockText) && blockText.length <= 3;
+
+        if (isPageNum) {
+          paraProps.alignment = docx.AlignmentType.CENTER;
+        } else if (detectHeading) {
+          if (isAllCaps || blockMaxFont > baseFontSize * 1.5) {
             paraProps.heading = docx.HeadingLevel.HEADING_1;
           } else if (blockMaxFont > baseFontSize * 1.3) {
             paraProps.heading = docx.HeadingLevel.HEADING_2;
-          } else {
+          } else if (blockMaxFont > baseFontSize * 1.15) {
             paraProps.heading = docx.HeadingLevel.HEADING_3;
           }
         }
