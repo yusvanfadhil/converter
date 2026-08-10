@@ -14,6 +14,7 @@ const convertBtn = document.getElementById('convertBtn');
 const downloadAllBtn = document.getElementById('downloadAllBtn');
 const clearBtn = document.getElementById('clearBtn');
 const toastContainer = document.getElementById('toastContainer');
+const optConversionMode = document.getElementById('optConversionMode');
 const optPageBreak = document.getElementById('optPageBreak');
 const optHeading = document.getElementById('optHeading');
 
@@ -181,6 +182,15 @@ function updateButtons() {
   clearBtn.disabled = !hasFiles || isProcessing;
 }
 
+function updateConversionOptions() {
+  const isFixedLayout = !optConversionMode || optConversionMode.value === 'fixed';
+  [optPageBreak, optHeading].forEach(option => {
+    option.disabled = isFixedLayout;
+    const wrapper = option.closest('.option');
+    if (wrapper) wrapper.classList.toggle('text-options-disabled', isFixedLayout);
+  });
+}
+
 // === Conversion Logic (Presisi Struktur) ===
 async function convertAll() {
   const toConvert = state.files.filter(f => f.status === 'queued' || f.status === 'error');
@@ -193,8 +203,91 @@ async function convertAll() {
     await convertPdfToWord(item);
   }
 
-  toast('success', 'Konversi Selesai', 'Semua file berhasil diproses dengan presisi.');
+  const failedCount = state.files.filter(f => f.status === 'error').length;
+  if (failedCount > 0) {
+    toast('error', 'Konversi selesai sebagian', `${failedCount} file gagal diproses. Cek pesan error di daftar file.`);
+  } else {
+    toast('success', 'Konversi Selesai', 'Semua file berhasil diproses dengan presisi.');
+  }
   updateButtons();
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error('Gagal merender halaman PDF.'));
+    }, 'image/png', 0.95);
+  });
+}
+
+async function convertPdfToFixedLayoutDocx(item, pdf, startTime) {
+  const children = [];
+  const preview = [];
+  const maxDocxImageWidth = 680;
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2 });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d', { alpha: false });
+    if (!context) throw new Error('Browser tidak bisa membuat canvas untuk merender PDF.');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const blob = await canvasToBlob(canvas);
+    const imageData = new Uint8Array(await blob.arrayBuffer());
+    const imageWidth = Math.min(maxDocxImageWidth, Math.round(viewport.width / 2));
+    const imageHeight = Math.round((imageWidth / viewport.width) * viewport.height);
+
+    children.push(new docx.Paragraph({
+      alignment: docx.AlignmentType.CENTER,
+      spacing: { before: 0, after: 0 },
+      children: [
+        new docx.ImageRun({
+          data: imageData,
+          transformation: {
+            width: imageWidth,
+            height: imageHeight
+          }
+        })
+      ]
+    }));
+
+    if (i < pdf.numPages) {
+      children.push(new docx.Paragraph({ children: [new docx.PageBreak()] }));
+    }
+
+    preview.push(`--- Halaman ${i} ---\nMode layout tetap: halaman disimpan sebagai gambar agar tampilan tidak berantakan.`);
+    item.progress = Math.round((i / pdf.numPages) * 100);
+    renderFileList();
+  }
+
+  const doc = new docx.Document({
+    sections: [{
+      properties: {
+        page: {
+          margin: {
+            top: 720,
+            right: 720,
+            bottom: 720,
+            left: 720
+          }
+        }
+      },
+      children
+    }]
+  });
+
+  item.docxBlob = await docx.Packer.toBlob(doc);
+  item.textPreview = preview.join('\n\n');
+  item.status = 'done';
+  item.duration = `${((performance.now() - startTime) / 1000).toFixed(1)}s`;
 }
 
 async function convertPdfToWord(item) {
@@ -210,6 +303,12 @@ async function convertPdfToWord(item) {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     item.pageCount = pdf.numPages;
     renderFileList();
+
+    const conversionMode = optConversionMode ? optConversionMode.value : 'fixed';
+    if (conversionMode === 'fixed') {
+      await convertPdfToFixedLayoutDocx(item, pdf, startTime);
+      return;
+    }
 
     const pageBreak = optPageBreak.checked;
     const detectHeading = optHeading.checked;
@@ -511,6 +610,10 @@ fileList.addEventListener('click', (e) => {
 convertBtn.addEventListener('click', convertAll);
 downloadAllBtn.addEventListener('click', downloadAll);
 clearBtn.addEventListener('click', clearAll);
+if (optConversionMode) {
+  optConversionMode.addEventListener('change', updateConversionOptions);
+}
+updateConversionOptions();
 
 if (typeof pdfjsLib === 'undefined' || typeof docx === 'undefined' || typeof saveAs === 'undefined') {
   setTimeout(() => {

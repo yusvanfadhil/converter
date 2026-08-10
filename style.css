@@ -99,6 +99,21 @@ body {
 .option label { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--fg-dim); user-select: none; }
 .option input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 .option input[type="checkbox"]:checked + .opt-text { color: var(--fg); }
+.option-select { display: flex; align-items: center; gap: 10px; }
+.option-select label { cursor: default; }
+.option-select select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 8px 34px 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.option-select select:focus { border-color: var(--accent); }
+.option.text-options-disabled { opacity: 0.45; }
+.option.text-options-disabled label { cursor: not-allowed; }
 
 .file-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
 .file-item { display: grid; grid-template-columns: 48px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; transition: all 0.2s; animation: itemIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
